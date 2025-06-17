@@ -1,0 +1,30 @@
+modLoader="javafml" #mandatory
+loaderVersion="[1,)" #mandatory
+license="Unlicense"
+issueTrackerURL="https://github.com/${github}/issues" #optional
+
+[[mods]] #mandatory
+modId="${mod_id}" #mandatory
+version="${version}" #mandatory
+displayName="Blåhaj of Undying" #mandatory
+displayURL="https://enjarai.dev" #optional
+logoFile="assets/blahaj_totem/icon.png" #optional
+authors="Enjarai, AnAwesomGuy" #optional
+description="Soft toy, shark mod, 16px, client-side."
+
+[[mixins]]
+config="${mod_id}.mixins.json"
+
+[[dependencies.${mod_id}]] #optional
+modId="neoforge" #mandatory
+type="required" #mandatory
+versionRange="[21.1,)" #mandatory
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"

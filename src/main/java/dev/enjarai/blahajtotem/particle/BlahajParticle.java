@@ -1,39 +1,41 @@
 package dev.enjarai.blahajtotem.particle;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.particle.AnimatedParticle;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleFactory;
-import net.minecraft.client.particle.SpriteProvider;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.client.particle.SimpleAnimatedParticle;
+import net.minecraft.client.particle.SpriteSet;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import org.jetbrains.annotations.NotNull;
 
-public class BlahajParticle extends AnimatedParticle {
-    protected BlahajParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, int[] colors, SpriteProvider spriteProvider) {
+public class BlahajParticle extends SimpleAnimatedParticle {
+    protected BlahajParticle(ClientLevel world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, int[] colors, SpriteSet spriteProvider) {
         super(world, x, y, z, spriteProvider, 1.25F);
-        this.velocityMultiplier = 0.6F;
-        this.velocityX = velocityX;
-        this.velocityY = velocityY;
-        this.velocityZ = velocityZ;
-        this.scale *= 0.75F;
-        this.maxAge = 60 + this.random.nextInt(12);
-        this.setSpriteForAge(spriteProvider);
+        this.friction = 0.6F;
+        this.xd = velocityX;
+        this.yd = velocityY;
+        this.zd = velocityZ;
+        this.quadSize *= 0.75F;
+        this.lifetime = 60 + this.random.nextInt(12);
+        this.setSpriteFromAge(spriteProvider);
 
         if (colors.length >= 1) {
             this.setColor(colors[this.random.nextInt(colors.length)]);
         }
     }
 
-    @Environment(EnvType.CLIENT)
-    public static class Factory implements ParticleFactory<BlahajParticleEffect> {
-        private final SpriteProvider spriteProvider;
+    @OnlyIn(Dist.CLIENT)
+    public static class Factory implements ParticleProvider<BlahajParticleEffect> {
+        private final SpriteSet spriteProvider;
 
-        public Factory(SpriteProvider spriteProvider) {
+        public Factory(SpriteSet spriteProvider) {
             this.spriteProvider = spriteProvider;
         }
 
-        public Particle createParticle(BlahajParticleEffect effect, ClientWorld clientWorld, double d, double e, double f, double g, double h, double i) {
-            return new BlahajParticle(clientWorld, d, e, f, g, h, i, effect.colors(), this.spriteProvider);
+        @Override
+        public Particle createParticle(BlahajParticleEffect effect, @NotNull ClientLevel clientWorld, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return new BlahajParticle(clientWorld, x, y, z, velocityX, velocityY, velocityZ, effect.colors(), this.spriteProvider);
         }
     }
 }

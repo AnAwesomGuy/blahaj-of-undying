@@ -2,28 +2,35 @@ package dev.enjarai.blahajtotem;
 
 import com.mojang.datafixers.util.Pair;
 import dev.enjarai.blahajtotem.particle.ModParticles;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.datagen.v1.DataGeneratorEntrypoint;
-import net.fabricmc.fabric.api.datagen.v1.FabricDataGenerator;
-import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
-import net.fabricmc.fabric.api.resource.ResourcePackActivationType;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.item.ModelPredicateProviderRegistry;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.renderer.item.ItemProperties;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.repository.Pack;
+import net.minecraft.server.packs.repository.PackSource;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.neoforged.neoforge.event.AddPackFindersEvent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-public class BlahajTotem implements ClientModInitializer, DataGeneratorEntrypoint {
-    public static final String MOD_ID = "blahaj-totem";
-    public static final String NAMESPACE = "blahaj_totem";
+@Mod(value = BlahajTotem.MOD_ID, dist = Dist.CLIENT)
+@EventBusSubscriber
+public class BlahajTotem {
+    public static final String MOD_ID = "blahaj_totem";
+    public static final ResourceLocation BLAHAJ_OF_UNDYING = ResourceLocation.fromNamespaceAndPath(MOD_ID, "blahaj_of_undying");
 
     public static final List<String> LARGE_KEYWORDS = List.of("large", "big", "chonker");
     public static final List<BlahajType> VARIANTS = List.of(
@@ -82,40 +89,50 @@ public class BlahajTotem implements ClientModInitializer, DataGeneratorEntrypoin
             ), BlahajTotem.id("item/mahiro"), 0xeddbd6, 0xffaaa7, 0xf38b9a, 0xebf6fa)
     );
 
-    @Override
-    public void onInitializeClient() {
-        ModelPredicateProviderRegistry.register(Items.TOTEM_OF_UNDYING, id("shork_variant"), (stack, world, entity, seed) -> {
-            var type = getShorkType(stack);
-            if (type != null) {
-                return (VARIANTS.indexOf(type) + 1f) / VARIANTS.size();
-            }
-            return 0f;
-        });
-        ModelPredicateProviderRegistry.register(Items.TOTEM_OF_UNDYING, id("shork_large"), (stack, world, entity, seed) -> {
-            if (stack.isOf(Items.TOTEM_OF_UNDYING) && stack.contains(DataComponentTypes.CUSTOM_NAME)) {
-                var name = Arrays.asList(stack.getName().getString().toLowerCase(Locale.ROOT).split("[ \\-_]"));
-                for (var keyword : LARGE_KEYWORDS) {
-                    if (name.contains(keyword)) {
-                        return 1f;
-                    }
-                }
-            }
-            return 0f;
-        });
+    public BlahajTotem(IEventBus bus) {
+        bus.addListener(BlahajTotem::clientSetup);
+        bus.addListener(BlahajTotem::registerResourcePack);
 
-        ResourceManagerHelper.registerBuiltinResourcePack(
-                BlahajTotem.id("default_to_totem"), FabricLoader.getInstance().getModContainer(MOD_ID).orElseThrow(),
-                Text.translatable("blahaj_totem.resourcepack.default_to_totem"), ResourcePackActivationType.NORMAL
-        );
-
-        ModParticles.register();
-
-        ClientCommandRegistrationCallback.EVENT.register(BlahajCommand::register);
+        bus.addListener(ModParticles::register);
+        bus.addListener(ModParticles::registerParticles);
     }
 
-    @Override
-    public void onInitializeDataGenerator(FabricDataGenerator fabricDataGenerator) {
-        fabricDataGenerator.createPack().addProvider(ShorkModelGenerator::new);
+    public static void clientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> {
+            ItemProperties.register(Items.TOTEM_OF_UNDYING, id("shork_variant"), (stack, world, entity, seed) -> {
+                var type = getShorkType(stack);
+                if (type != null) {
+                    return (VARIANTS.indexOf(type) + 1f) / VARIANTS.size();
+                }
+                return 0f;
+            });
+            ItemProperties.register(Items.TOTEM_OF_UNDYING, id("shork_large"), (stack, world, entity, seed) -> {
+                if (stack.is(Items.TOTEM_OF_UNDYING) && stack.has(DataComponents.CUSTOM_NAME)) {
+                    var name = Arrays.asList(stack.getHoverName().getString().toLowerCase(Locale.ROOT).split("[ \\-_]"));
+                    for (var keyword : LARGE_KEYWORDS) {
+                        if (name.contains(keyword)) {
+                            return 1f;
+                        }
+                    }
+                }
+                return 0f;
+            });
+        });
+    }
+
+    public static void registerResourcePack(AddPackFindersEvent event) {
+        event.addPackFinders(
+                BlahajTotem.id("resourcepacks/default_to_totem"),
+                PackType.CLIENT_RESOURCES, Component.translatable("blahaj_totem.resourcepack.default_to_totem"),
+                PackSource.create(text -> Component.translatable("pack.nameAndSource", text, BlahajTotem.MOD_ID).withStyle(ChatFormatting.GRAY), true),
+                false,
+                Pack.Position.TOP
+        );
+    }
+
+    @SubscribeEvent
+    public static void registerClientCommands(RegisterClientCommandsEvent event) {
+        BlahajCommand.register(event.getDispatcher());
     }
 
     public static final LinkedList<Pair<String, BlahajType>> SEARCHABLE_VARIANTS = new LinkedList<>(VARIANTS.stream()
@@ -127,13 +144,14 @@ public class BlahajTotem implements ClientModInitializer, DataGeneratorEntrypoin
 
     @Nullable
     public static BlahajType getShorkType(ItemStack stack) {
-        if (stack.isOf(Items.TOTEM_OF_UNDYING) && stack.contains(DataComponentTypes.CUSTOM_NAME)) {
-            var name = new HashSet<>(Arrays.asList(stack.getName().getString().toLowerCase(Locale.ROOT).split("[ \\-_]")));
+        if (stack.is(Items.TOTEM_OF_UNDYING) && stack.has(DataComponents.CUSTOM_NAME)) {
+            Pattern pattern = Pattern.compile("[ \\-_]");
+            var name = new HashSet<>(Arrays.asList(pattern.split(stack.getHoverName().getString().toLowerCase(Locale.ROOT))));
             Pair<String, BlahajType> type = null;
 
             for (var variant : SEARCHABLE_VARIANTS) {
                 String vName = variant.getFirst();
-                List<String> vSplit = Arrays.asList(vName.split("[ \\-_]"));
+                List<String> vSplit = Arrays.asList(pattern.split(vName));
 
                 if (name.containsAll(vSplit) && (type == null || (vName.length() > type.getFirst().length()
                         && !variant.getSecond().lesser()) || type.getSecond().lesser())) {
@@ -149,7 +167,7 @@ public class BlahajTotem implements ClientModInitializer, DataGeneratorEntrypoin
         return null;
     }
 
-    public static Identifier id(String path) {
-        return Identifier.of(NAMESPACE, path);
+    public static ResourceLocation id(String path) {
+        return BLAHAJ_OF_UNDYING.withPath(path);
     }
 }

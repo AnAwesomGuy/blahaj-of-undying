@@ -1,84 +1,76 @@
 plugins {
-	id 'fabric-loom' version '1.6-SNAPSHOT'
+	id 'net.neoforged.moddev' version '2.0.+'
 	id 'maven-publish'
 	id "me.modmuss50.mod-publish-plugin" version "0.4.4"
-	id 'me.fallenbreath.yamlang' version '1.3.1'
+	id 'me.fallenbreath.yamlang' version '1.4.1'
 }
 
 version = "${project.mod_version}+${property("deps.minecraft")}"
 group = project.maven_group
 
 base {
-	archivesName = project.archives_base_name
+	archivesName = project.mod_id
 }
 
-repositories {
-	// Add repositories to retrieve artifacts from in here.
-	// You should only use this when depending on other mods because
-	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
-	// for more information about repositories.
-}
+neoForge {
+	// Specify the version of NeoForge to use.
+	version = property("deps.neoforge")
 
-dependencies {
-	// To change the versions see the gradle.properties file
-	minecraft "com.mojang:minecraft:${property("deps.minecraft")}"
-	mappings "net.fabricmc:yarn:${property("deps.yarn")}:v2"
-	modImplementation "net.fabricmc:fabric-loader:${property("deps.fabricloader")}"
+	parchment {
+		mappingsVersion = "2024.11.17"
+		minecraftVersion = property("deps.minecraft")
+	}
 
-	// Fabric API. This is technically optional, but you probably want it anyway.
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${property("deps.fabric-api")}"
-	
-	// Uncomment the following line to enable the deprecated Fabric API modules. 
-	// These are included in the Fabric API production distribution and allow you to update your mod to the latest modules at a later more convenient time.
+	runs {
+		client {
+			client()
+			systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+		}
 
-	// modImplementation "net.fabricmc.fabric-api:fabric-api-deprecated:${project.fabric_version}"
-}
+		server {
+			server()
+			programArgument '--nogui'
+			systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+		}
 
-processResources {
-	inputs.property "version", project.version
+		configureEach {
+			systemProperty 'forge.logging.markers', 'REGISTRIES'
+			logLevel = org.slf4j.event.Level.DEBUG
+			systemProperty 'terminal.jline', 'true'
+			systemProperty 'mixin.debug.export', 'true'
+			systemProperty 'mixin.debug.verbose', 'true'
+		}
+	}
 
-	filesMatching("fabric.mod.json") {
-		expand "version": project.version
+	mods {
+		"${mod_id}" {
+			sourceSet(sourceSets.main)
+		}
 	}
 }
 
-tasks.withType(JavaCompile).configureEach {
-	it.options.release = 17
+processResources {
+	def properties = [
+			version: project.version, mod_id: project.mod_id,
+			github: project.mod_github, modrinth: project.mod_modrinth,
+			minecraft_version_range: "[${minecraft_min},${minecraft_max}]"
+	]
+
+	inputs.properties properties
+
+	filesMatching("META-INF/neoforge.mods.toml") {
+		expand properties
+	}
 }
 
 java {
-	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-	// if it is present.
-	// If you remove this line, sources will not be generated.
 	withSourcesJar()
-
-	sourceCompatibility = JavaVersion.VERSION_17
-	targetCompatibility = JavaVersion.VERSION_17
+	toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
 
 jar {
 	from("LICENSE") {
-		rename { "${it}_${project.base.archivesName.get()}"}
-	}
-}
-
-fabricApi {
-	configureDataGeneration()
-}
-
-loom {
-	runs {
-		datagenClient {
-			client()
-			name "Data Generation Client"
-			vmArg "-Dfabric-api.datagen"
-			vmArg "-Dfabric-api.datagen.output-dir=${file("src/main/generated")}"
-			vmArg "-Dfabric-api.datagen.modid=blahaj-totem"
-
-			ideConfigGenerated = true
-			runDir "build/datagen"
-		}
+		rename { "${it}_${project.mod_id}"}
 	}
 }
 
@@ -105,15 +97,16 @@ publishing {
 }
 
 publishMods {
-	file = remapJar.archiveFile
+	file = jar.archiveFile
+	additionalFiles.from sourcesJar.archiveFile
 	displayName = "${property('mod_version')} for ${property('deps.minecraft')}"
 	version = project.version
-	changelog = getRootProject().file("CHANGELOG.md").text
+	changelog = rootProject.file("CHANGELOG.md").text
 	type = STABLE
-	modLoaders.add("fabric")
+	modLoaders.add("neoforge")
 
-	def min = property('publish_target_min')
-	def max = property('publish_target_max')
+	def min = property('minecraft_min')
+	def max = property('minecraft_max')
 
 	if (providers.gradleProperty('enjaraiModrinthToken').present) {
 		modrinth {
@@ -127,10 +120,6 @@ publishMods {
 					start = min
 					end = max
 				}
-			}
-
-			requires {
-				slug = "fabric-api"
 			}
 		}
 	}

@@ -1,10 +1,9 @@
 package dev.enjarai.blahajtotem;
 
-import net.minecraft.util.Identifier;
-
 import java.util.List;
+import net.minecraft.resources.ResourceLocation;
 
-public record BlahajType(String name, List<String> alternatives, Identifier model, boolean lesser, int... colors) {
+public record BlahajType(String name, List<String> alternatives, ResourceLocation model, boolean lesser, int... colors) {
     public BlahajType(String name, int... colors) {
         this(name, List.of(), BlahajTotem.id("item/shork"), false, colors);
     }
@@ -13,7 +12,7 @@ public record BlahajType(String name, List<String> alternatives, Identifier mode
         this(name, alternatives, BlahajTotem.id("item/shork"), false, colors);
     }
 
-    public BlahajType(String name, List<String> alternatives, Identifier model, int... colors) {
+    public BlahajType(String name, List<String> alternatives, ResourceLocation model, int... colors) {
         this(name, alternatives, model, false, colors);
     }
 

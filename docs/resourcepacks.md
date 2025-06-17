@@ -8,12 +8,12 @@ make it use this custom arm position.
 ```json
 {
   "huggable": true,
-  "parent": ...,
+  "parent": "...",
   "textures": {
-    ...
+    // ...
   },
   "elements": [
-    ...
+    // ...
   ]
 }
 ```
